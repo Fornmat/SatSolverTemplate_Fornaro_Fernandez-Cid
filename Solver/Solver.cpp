@@ -319,6 +319,107 @@ namespace sat {              // Espacio de nombres del solver
         return false;                                     // si ambas ramas fallan -> UNSAT
     }
 
+        Variable Solver::pickMostConstrainedTiebreakRandom(std::mt19937 &rng) const {
+            unsigned bestScore = 0;
+            bool found = false;
+
+            // 1) Find best score among unassigned vars
+            for (unsigned varId = 0; varId < model.size(); ++varId) {
+                if (model[varId] != TruthValue::Undefined) continue;
+                const unsigned score = occCount[varId];
+                if (!found || score > bestScore) {
+                    found = true;
+                    bestScore = score;
+                }
+            }
+
+            if (!found) {
+                // fallback to existing heuristic (should not happen if not allAssigned)
+                return heuristic(model, countOpenVariables());
+            }
+
+            // 2) Build candidate set: "near best" (>= 90% of bestScore)
+            // This makes tie-break less rigid and helps avoid deterministic traps.
+            const unsigned threshold = (bestScore * 9u) / 10u;
+
+            std::vector<unsigned> candidates;
+            candidates.reserve(model.size());
+
+            for (unsigned varId = 0; varId < model.size(); ++varId) {
+                if (model[varId] != TruthValue::Undefined) continue;
+                const unsigned score = occCount[varId];
+                if (score >= threshold) {
+                    candidates.push_back(varId);
+                }
+            }
+
+            // If something weird happens, fallback
+            if (candidates.empty()) {
+                return Variable(0);
+            }
+
+            std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
+            return Variable(candidates[dist(rng)]);
+        }
+
+
+    SolveStatus Solver::solveRec(std::mt19937 &rng) {
+        if (!unitPropagate()) {
+            ++conflicts;
+            if (conflicts >= restartBudget) return SolveStatus::RESTART;
+            return SolveStatus::UNSAT;
+        }
+
+        if (allAssigned()) return SolveStatus::SAT;
+
+        const Variable x = pickMostConstrainedTiebreakRandom(rng);
+
+        // Random polarity: sometimes try neg first
+        bool startWithPos = true;
+        {
+            std::uniform_int_distribution<int> coin(0, 1);
+            startWithPos = (coin(rng) == 1);
+        }
+
+        Literal first = startWithPos ? pos(x) : neg(x);
+        Literal second = startWithPos ? neg(x) : pos(x);
+
+        for (Literal decision : {first, second}) {
+            newDecisionLevel();
+
+            if (assign(decision)) {
+                SolveStatus st = solveRec(rng);
+                if (st == SolveStatus::SAT) return SolveStatus::SAT;
+                if (st == SolveStatus::RESTART) return SolveStatus::RESTART;
+            }
+
+            backtrackOneLevel();
+        }
+
+        return SolveStatus::UNSAT;
+    }
+
+
+    bool Solver::solve_with_restart() {
+        // RNG (fixed seed would make runs reproducible; random_device makes it different each time)
+        std::random_device rd;
+        std::mt19937 rng(rd());
+
+        while (true) {
+            SolveStatus st = solveRec(rng);
+
+            if (st == SolveStatus::SAT) return true;
+            if (st == SolveStatus::UNSAT) return false;
+
+            // RESTART: backtrack to level 0
+            while (!trailLimits.empty()) backtrackOneLevel();
+
+            // Increase budget and reset conflicts counter
+            restartBudget *= restartFactor;
+            conflicts = 0;
+        }
+    }
+
     // Devuelve el trail (literales asignados) como referencia constante
     auto Solver::getUnitLiterals() const -> const std::vector<Literal>& {
         return unitLiterals;                              // permite imprimir la solución o usarla en tests

@@ -72,27 +72,27 @@ int main(int argc, char **argv) {
     
     // 5) Medir tiempo SOLO de solve()   
     auto start = std::chrono::high_resolution_clock::now(); // inicio reloj alta resolución
-    const bool isSat = solver.solve(); // aquí corre el algoritmo SAT (DPLL + propagación)
+    const bool isSat = solver.solve_with_restart(); // aquí corre el algoritmo SAT (DPLL + propagación)
     auto end = std::chrono::high_resolution_clock::now();   // fin
     auto durationSec = std::chrono::duration<double>(end - start).count(); // duración en segundos (double)
 
     start = std::chrono::high_resolution_clock::now(); // inicio reloj alta resolución
-    const bool isSat2 = s2.solve(); // aquí corre el algoritmo SAT (DPLL + propagación)
+    const bool isSat2 = s2.solve_with_restart(); // aquí corre el algoritmo SAT (DPLL + propagación)
     end = std::chrono::high_resolution_clock::now();   // fin
     auto durationSec2 = std::chrono::duration<double>(end - start).count(); // duración en segundos (double)
 
     start = std::chrono::high_resolution_clock::now();
-    const bool isSat3 = s3.solve();
+    const bool isSat3 = s3.solve_with_restart();
     end = std::chrono::high_resolution_clock::now();
     auto durationSec3 = std::chrono::duration<double>(end - start).count();
 
     start = std::chrono::high_resolution_clock::now();
-    const bool isSat4 = s4.solve();
+    const bool isSat4 = s4.solve_with_restart();
     end = std::chrono::high_resolution_clock::now();
     auto durationSec4 = std::chrono::duration<double>(end - start).count();
 
     start = std::chrono::high_resolution_clock::now();
-    const bool isSat5 = s5.solve();
+    const bool isSat5 = s5.solve_with_restart();
     end = std::chrono::high_resolution_clock::now();
     auto durationSec5 = std::chrono::duration<double>(end - start).count();
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     // 7) Crear carpeta de salida
     
     // Crea ../sol si no existe (si ya existe, no pasa nada)
-    std::filesystem::create_directories("../sol");
+    std::filesystem::create_directories("../sol/restart");
 
     
     // 8) Construir ruta del fichero de salida
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
     std::string inputFile(argv[1]); // ruta input como string
     // stem() = nombre del archivo sin extensión
     // ejemplo: uf20-0184.cnf -> uf20-0184
-    std::string outputFile = "../sol/" + std::filesystem::path(inputFile).stem().string() + ".cnf";
+    std::string outputFile = "../sol/restart/" + std::filesystem::path(inputFile).stem().string() + ".cnf";
 
     
     // 9) Abrir fichero de salida
