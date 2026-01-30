@@ -28,6 +28,8 @@ namespace sat {
      */
     class  Variable {
         //@TODO Private members here
+        private:
+        unsigned _val;
     public:
         /**
          * CTor
@@ -54,7 +56,8 @@ namespace sat {
      * A literal of variable x is either x or ¬x
      */
     class Literal {
-        //@TODO Private members here
+         private:
+        unsigned _val;
     public:
         /**
          * CTor

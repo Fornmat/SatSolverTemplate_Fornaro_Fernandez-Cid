@@ -1,57 +1,82 @@
 /**
 * @author Tim Luchterhand
 * @date 26.11.24
-* @brief
+* @brief Implementación de las estructuras básicas Variable y Literal
 */
 
-#include "basic_structures.hpp"
-#include "util/exception.hpp"
+#include "basic_structures.hpp"   // Incluye las declaraciones de Variable y Literal
 
-namespace sat {
-    // @TODO implementation here
+namespace sat {                  // Espacio de nombres del solver SAT
 
+    // -------------------------
+    // Variable
+    // -------------------------
 
-    Variable::Variable(unsigned val) {
-        throw NOT_IMPLEMENTED;
-    }
+    // Constructor de Variable: guarda el identificador de la variable
+    Variable::Variable(unsigned val) : _val(val) {}
 
+    // Devuelve el identificador interno de la variable
     unsigned Variable::get() const {
-        throw NOT_IMPLEMENTED;
+        return _val;
     }
 
+    // Compara dos variables comprobando si tienen el mismo identificador
     bool Variable::operator==(Variable other) const {
-        throw NOT_IMPLEMENTED;
+        return _val == other._val;
     }
 
-    Literal::Literal(unsigned val) {
-        throw NOT_IMPLEMENTED;
-    }
+    // -------------------------
+    // Literal
+    // -------------------------
 
+    // Constructor de Literal: guarda el identificador del literal
+    Literal::Literal(unsigned val) : _val(val) {}
+
+    // Devuelve el identificador interno del literal, PARES NEGATIVOS, IMPARES POSITIVOS
     unsigned Literal::get() const {
-        throw NOT_IMPLEMENTED;
+        return _val;
     }
 
+    // Devuelve el literal negado, del lit negativo te devuelve el positivo y del lit positivo el negativo
     Literal Literal::negate() const {
-        throw NOT_IMPLEMENTED;
+        // Cambia el último bit:
+        // par <-> impar  => negativo <-> positivo
+        return Literal(_val ^ 1u);
     }
 
+    // Devuelve el signo del literal
     short Literal::sign() const {
-        throw NOT_IMPLEMENTED;
+        // Identificador par  => literal negativo => -1  (si es par negativo si es impar positivo)
+        // Identificador impar => literal positivo => +1
+        return (_val % 2u == 0u) ? static_cast<short>(-1)
+                                 : static_cast<short>(+1);
     }
 
+    // Compara dos literales comprobando si tienen el mismo identificador
     bool Literal::operator==(Literal other) const {
-        throw NOT_IMPLEMENTED;
+        return _val == other._val;
     }
 
+    // -------------------------
+    // Helper functions
+    // -------------------------
+
+    // Crea el literal positivo de una variable
     Literal pos(Variable x) {
-        throw NOT_IMPLEMENTED;
+        // Identificador impar para el literal positivo, identificador de una variable x 2 + 1
+        return Literal(2u * x.get() + 1u);
     }
 
+    // Crea el literal negativo de una variable, identificador de una variable x 2 
     Literal neg(Variable x) {
-        throw NOT_IMPLEMENTED;
+        // Identificador par para el literal negativo
+        return Literal(2u * x.get());
     }
 
+    // Obtiene la variable asociada a un literal, 
     Variable var(Literal l) {
-        throw NOT_IMPLEMENTED;
+        // Dividir entre 2 elimina el bit de signo, se queda con el lower casse 
+        return Variable(l.get() / 2u);
     }
-}
+
+} // namespace sat

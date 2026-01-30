@@ -10,56 +10,59 @@
 
 #include <vector>
 #include <memory>
+#include <random>
 
 #include "basic_structures.hpp"
 #include "util/concepts.hpp"
 
 namespace sat {
-    /**
-     * Concept modelling the heuristic interface. A heuristic is a type that can be called with a vector of truth
-     * values (the model) and an unsigned integer representing the number of variables that are undecided and returns
-     * a sat::Variable
-     */
+
     template<typename H>
     concept heuristic = concepts::callable_r<H, Variable, const std::vector<TruthValue>, std::size_t>;
 
     /**
-     * @brief Variable selection strategy that selects the first unassigned variable
+     * @brief Selects the first unassigned variable
      */
     struct FirstVariable {
         Variable operator()(const std::vector<TruthValue> &model, std::size_t) const;
     };
 
+    /**
+     * @brief Selects an unassigned variable with the most occurrences in the formula.
+     */
+    struct MostConstrained {
+        const std::vector<unsigned>* occ = nullptr;
+
+        explicit MostConstrained(const std::vector<unsigned>* occCounts) : occ(occCounts) {}
+
+        Variable operator()(const std::vector<TruthValue>& model, std::size_t) const;
+    };
+
+    struct RandomVariable {
+        mutable std::mt19937 rng{std::random_device{}()};
+
+        Variable operator()(const std::vector<TruthValue>& model, std::size_t numOpenVariables) const;
+    };
+
     namespace detail {
-        /**
-         * @brief This is a helper class for the implementation of a type erasure heuristic wrapper
-         */
         struct HeuristicCallableBase {
             HeuristicCallableBase() = default;
-
             virtual ~HeuristicCallableBase() = default;
 
             HeuristicCallableBase(HeuristicCallableBase &&) = default;
-
             HeuristicCallableBase &operator=(HeuristicCallableBase &&) = default;
-
             HeuristicCallableBase(const HeuristicCallableBase &) = default;
-
             HeuristicCallableBase &operator=(const HeuristicCallableBase &) = default;
 
             virtual Variable invoke(const std::vector<TruthValue> &, std::size_t) = 0;
         };
 
-        /**
-         * @brief This is a helper class for the implementation of a type erasure heuristic wrapper
-         */
         template<heuristic H>
         struct HeuristicCallable : HeuristicCallableBase {
             H impl;
 
             template<typename... Args>
-            explicit HeuristicCallable(Args &&... args): impl(std::forward<Args>(args)...) {
-            }
+            explicit HeuristicCallable(Args &&... args): impl(std::forward<Args>(args)...) {}
 
             Variable invoke(const std::vector<TruthValue> &values, std::size_t numOpenVariables) override {
                 return impl(values, numOpenVariables);
@@ -67,56 +70,20 @@ namespace sat {
         };
     }
 
-    /**
-     * @brief Type erasure heuristic wrapper that can hold any type of heuristic
-     */
     class Heuristic {
         std::unique_ptr<detail::HeuristicCallableBase> impl;
     public:
-        /**
-         * Default Ctor. Constructs an empty heuristic that must not be called
-         */
         Heuristic() = default;
 
-        /**
-         * Ctor.
-         * @tparam H Heuristic type
-         * @param heuristic The heuristic to store in the wrapper
-         */
         template<heuristic H>
         Heuristic(H &&heuristic): impl(
-            std::make_unique<detail::HeuristicCallable<std::remove_cvref_t<H>>>(std::forward<H>(heuristic))) {
-        }
+            std::make_unique<detail::HeuristicCallable<std::remove_cvref_t<H>>>(std::forward<H>(heuristic))) {}
 
         Variable operator()(const std::vector<TruthValue> &values, std::size_t numOpenVariables) const;
 
-        /**
-         * Whether the wrapper holds a valid heuristic
-         * @return true if heuristic wrapper is valid, false otherwise
-         */
         bool isValid() const;
     };
 
-    /**
-     * @brief Wrapper for heuristics that do not support move construction or assignment
-     * @tparam H heuristic type
-     */
-    template<heuristic H>
-    class MovableHeuristic {
-        std::unique_ptr<H> h;
-    public:
-        /**
-         * Ctor
-         * @tparam Args argument types
-         * @param args ctor arguments to heuristic
-         */
-        template<typename... Args>
-        explicit MovableHeuristic(Args &&...args): h(std::make_unique<H>(std::forward<Args>(args)...)) {}
+} // namespace sat
 
-        Variable operator()(const std::vector<TruthValue> &values, std::size_t numOpenVariables) const {
-            return h->operator()(values, numOpenVariables);
-        }
-    };
-}
-
-#endif //HEURISTICS_HPP
+#endif // HEURISTICS_HPP

@@ -9,94 +9,82 @@
 #define SOLVER_HPP
 
 #include <memory>
+#include <vector>
 
+#include "heuristics.hpp"
 #include "basic_structures.hpp"
 #include "Clause.hpp"
 
 namespace sat {
-    /*
-     * These two types might be useful for your implementation. A shared pointer manages an object on the heap. It can
-     * be copied without copying the actual object. This can be useful if you want to access the same clause from
-     * multiple locations without copying it. Once all copies of the pointer have been destroyed, the actual object
-     * is also destroyed
-     */
+
     using ClausePointer = std::shared_ptr<Clause>;
     using ConstClausePointer = std::shared_ptr<const Clause>;
 
-
-    /**
-     * @brief Main solver class
-     */
     class Solver {
-        // @TODO private members here
+    private:
+
+        
+        unsigned numVars = 0;
+
+        // Watchlists: por cada literal-id guardamos las cláusulas que lo vigilan
+        std::vector<std::vector<ClausePointer>> watchlists;
+
+        // Índice del trail ya propagado (para no re-propagar todo cada vez)
+        std::size_t propagateHead = 0;
+
+    // Helper: map literal -> index (en tu caso ya es el id interno)
+        std::size_t litIndex(Literal l) const { return static_cast<std::size_t>(l.get()); }
+
+
+        // occurrences per variable (0..n-1)
+        std::vector<unsigned> occCount;
+
+        // assignment per variable (0..n-1)
+        std::vector<TruthValue> model;
+
+        // CNF clauses
+        std::vector<ClausePointer> clauses;
+
+        // trail: decisions + propagations
+        std::vector<Literal> unitLiterals;
+
+        // backtracking limits
+        std::vector<std::size_t> trailLimits;
+
+        // heuristic wrapper (we will set MostConstrained by default in the ctor)
+        Heuristic heuristic;
+
+        std::size_t countOpenVariables() const;
+        bool allAssigned() const;
+        void newDecisionLevel();
+        void backtrackOneLevel();
+
     public:
-
-        /**
-         * Ctor. Allocates enough space for the variables.
-         * @param numVariables Number of variables in the problem
-         * @note This Ctor needs to exist for the tests. You can add other Ctors if you want
-         */
         explicit Solver(unsigned numVariables);
+        Solver(unsigned numVariables, FirstVariable h);
+        Solver(unsigned numVariables, RandomVariable h);
 
-        /*
-         * @TODO if you want, you can declare additional constructors here
-         */
-
-
-        /*
-         * You can design the interface of your solver as you want. You can for example add clauses already in the
-         * constructor. The tests require the addClause method, however.
-         */
-
-        /**
-         * Adds a clause to the solver.
-         * @param clause The clause to add
-         * @return bool true if clause was successfully added, false if clause is empty or unit and violates the current
-         * model
-         */
         bool addClause(Clause clause);
 
-        /**
-         * Returns a reduced set of clauses. Excludes satisfied clauses and removes falsified literals from clauses
-         * @return equivalent set of clauses
-         */
         auto rebase() const -> std::vector<Clause>;
 
-        /**
-         * Returns the truth value of the given variable
-         * @param x a variable (needs to be contained in the solver)
-         * @return TruthValue of the given variable
-         */
         TruthValue val(Variable x) const;
 
-        /**
-         * Checks if a literal holds
-         * @param l literal (needs ti be contained in the solver)
-         * @return true if literal holds under current model, false otherwise
-         */
         bool satisfied(Literal l) const;
 
-        /**
-         * Checks if a literal does not hold
-         * @param l literal (needs ti be contained in the solver)
-         * @return true if literal the negated literal is satisfied, false otherwise
-         */
         bool falsified(Literal l) const;
 
-        /**
-         * Assigns the given literal
-         * @param l Literal to assign
-         * @return false if literal is already falsified, true otherwise
-         */
         bool assign(Literal l);
 
-        /**
-         * Does the unit propagation.
-         * @return true if unit propagation was successful, false otherwise
-         */
         bool unitPropagate();
 
-    };
-} // sat
+        auto getUnitLiterals() const -> const std::vector<Literal>&;
 
-#endif //SOLVER_HPP
+        bool solve();
+
+        const std::vector<unsigned>& getOccCount() const { return occCount; }
+    };
+
+} // namespace sat
+
+#endif // SOLVER_HPP
